@@ -3,27 +3,33 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"io"
 	"log"
 	"net/http"
 	"time"
 	"ygaros-discovery-client/client"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
+
+var serverClient client.Client
 
 func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Group(func(r chi.Router) {
-		r.Get("/", GetMapping)
 		r.Get("/*", GetMapping)
+		r.Get("/", GetMapping)
 	})
-	err := client.NewClientAndHeartBeat(
+	var err error
+	serverClient, err = client.NewClientAndHeartBeat(
 		"localhost",
 		7654,
 		"service-on-8000",
 		"localhost",
 		8000,
+		false,
 	)
 	if err != nil {
 		log.Println(err)
@@ -40,8 +46,27 @@ type Response struct {
 func GetMapping(w http.ResponseWriter, r *http.Request) {
 	response := Response{
 		Time:    time.Now(),
-		Message: "hello from service on 8000",
+		Message: "Merged message:",
 	}
+	serviceArray := [3]string{
+		"service-on-8001",
+		"service-on-8002",
+		"service-on-8003",
+	}
+	for _, serviceName := range serviceArray {
+		serviceData, err := serverClient.GetService(serviceName)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		respo, err := DoGetRequest(serviceData.Url)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		response.Message = response.Message + " " + respo
+	}
+
 	if marshaled, err := json.Marshal(response); err == nil {
 		w.WriteHeader(http.StatusOK)
 		w.Write(marshaled)
@@ -50,4 +75,21 @@ func GetMapping(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+}
+func DoGetRequest(url string) (string, error) {
+	response, err := http.Get(url)
+	responseBody := Response{}
+	if err != nil {
+		return "", err
+	}
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	err = json.Unmarshal(body, &responseBody)
+	if err != nil {
+		return "", err
+	}
+	return responseBody.Message, nil
 }
