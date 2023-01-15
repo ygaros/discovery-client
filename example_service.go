@@ -9,21 +9,12 @@ import (
 	"time"
 
 	"github.com/ygaros/discovery-client/client"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 var serverClient client.Client
 
 func main() {
 	var err error
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Group(func(r chi.Router) {
-		r.Get("/*", GetMapping)
-		r.Get("/", GetMapping)
-	})
 
 	discoveryServerUrl := "localhost"
 	dicoveryServerPort := 7654
@@ -33,7 +24,7 @@ func main() {
 	servicePort := 8000
 	isHttps := false
 
-	serverClient, err = client.NewGrpcClientAndHeartBeat(
+	serverClient, err = client.NewClient(
 		discoveryServerUrl,
 		dicoveryServerPort,
 		serviceName,
@@ -44,7 +35,10 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", servicePort), r))
+
+	http.HandleFunc("/", GetMapping)
+
+	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", servicePort), nil))
 
 }
 

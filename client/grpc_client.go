@@ -88,7 +88,7 @@ func (gc *grpcClient) GetListOfServices() (services []dto.Service, err error) {
 	return services, err
 }
 
-func NewGrpcClient(discoveryServerUrl string, discoveryServerPort int,
+func NewGrpcClientInstance(discoveryServerUrl string, discoveryServerPort int,
 	serviceName, serviceUrl string, servicePort int, secure bool) Client {
 	serverUrl := fmt.Sprintf("%s:%d", discoveryServerUrl, discoveryServerPort)
 	conn, err := grpc.Dial(serverUrl, grpc.WithInsecure())
@@ -108,7 +108,7 @@ func NewGrpcClient(discoveryServerUrl string, discoveryServerPort int,
 }
 func NewGrpcClientOneTimeRegister(discoveryServerUrl string, discoveryServerPort int,
 	serviceName, serviceUrl string, servicePort int, secure bool) error {
-	client := NewGrpcClient(
+	client := NewGrpcClientInstance(
 		discoveryServerUrl, discoveryServerPort,
 		serviceName, serviceUrl, servicePort, secure,
 	)
@@ -116,7 +116,7 @@ func NewGrpcClientOneTimeRegister(discoveryServerUrl string, discoveryServerPort
 }
 func NewGrpcClientAndHeartBeat(discoveryServerUrl string, discoveryServerPort int,
 	serviceName, serviceUrl string, servicePort int, secure bool) (Client, error) {
-	client := NewGrpcClient(
+	client := NewGrpcClientInstance(
 		discoveryServerUrl, discoveryServerPort,
 		serviceName, serviceUrl, servicePort, secure,
 	)
@@ -124,4 +124,15 @@ func NewGrpcClientAndHeartBeat(discoveryServerUrl string, discoveryServerPort in
 	go DoHeartBeat(client)
 	go client.StartFetchingServices(30 * time.Second)
 	return client, nil
+}
+
+/*
+	Creates new client with cache for gRPC discovery server for given porameters
+	and start heartbeating.
+*/
+func NewClient(discoveryServerUrl string, discoveryServerPort int,
+	serviceName, serviceUrl string, servicePort int, secure bool) (Client, error) {
+	return NewGrpcClientAndHeartBeat(
+		discoveryServerUrl, discoveryServerPort,
+		serviceName, serviceUrl, servicePort, secure)
 }
