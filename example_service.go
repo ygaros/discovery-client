@@ -7,7 +7,8 @@ import (
 	"log"
 	"net/http"
 	"time"
-	"ygaros-discovery-client/client"
+
+	"github.com/ygaros/discovery-client/client"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,25 +17,34 @@ import (
 var serverClient client.Client
 
 func main() {
+	var err error
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Group(func(r chi.Router) {
 		r.Get("/*", GetMapping)
 		r.Get("/", GetMapping)
 	})
-	var err error
-	serverClient, err = client.NewClientAndHeartBeat(
-		"localhost",
-		7654,
-		"service-on-8000",
-		"localhost",
-		8000,
-		false,
+
+	discoveryServerUrl := "localhost"
+	dicoveryServerPort := 7654
+
+	serviceName := "service-on-8000"
+	serviceUrl := "localhost"
+	servicePort := 8000
+	isHttps := false
+
+	serverClient, err = client.NewGrpcClientAndHeartBeat(
+		discoveryServerUrl,
+		dicoveryServerPort,
+		serviceName,
+		serviceUrl,
+		servicePort,
+		isHttps,
 	)
 	if err != nil {
 		log.Println(err)
 	}
-	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", 8000), r))
+	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", servicePort), r))
 
 }
 
@@ -77,6 +87,7 @@ func GetMapping(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func DoGetRequest(url string) (string, error) {
+	log.Printf("processing get on %s\n", url)
 	response, err := http.Get(url)
 	responseBody := Response{}
 	if err != nil {
